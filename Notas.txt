@@ -1,0 +1,47 @@
+3 Practicas + un examen cada practica (tipo test)
+Nota media minima en los tests (no se cuanto)
+En teoria no hay que estudiar nada
+Los test se resuelven haciendo las prcticas con atecion (mas como una validacion)
+
+Programacion concurrente
+
+Codigo CORRECTO!
+controlar ejecuciones concurrentes
+NO IR A REVISION NUNCA!
+Trabajo mas escrupulosos
+
+Ejercicios aparentemente sencillos
+
+De modulo a modulo paso a paso
+
+INTRODUCCION A LA PRACTICA 1
+
+Interfaz-> Nos permite dar ordenes a l'ordinador (Grafico, CLI (MAS POTENTE)..)
+
+Orden compleja -> script
+
+Diferencia entre programa y proceso
+Proceso es un programa en ejecucion, cargado en memoria.
+El programa puede ser codigo fuente, codigo compilado o exe
+
+Los procesos pueden ejecutarse de forma concurrente (parallelamente)
+Il nivel de concurrencia puede ser real o virtual.
+Real de cores
+virtual de hilos
+
+NO sabemos en que orden se van a ejecutar los procesos,
+salvo que pongamos mecanismo de control, pero basicamente no tenemos orden a priori.
+Podemos tener semaforos que controlen el orden de ejecution des procesos.
+
+No puedo hacer asumpciones sobre quien se ejecuta antes.
+
+Un proceso tenemos una enfrastructura que reserva memoria.
+cuando el proceso se termina la memoria se libera.
+pero hay programas que nunca acaben. Free importantes.
+
+Proceso tiene:
+- Code segment: intrucciones maquina
+- Stack: Paramedros de llamadas recursivas, declaraciones estaticas 
+	(Se libera cuando acaba la funcion)
+- Heap: memoria dinamica 
+	(se libera con frees)
