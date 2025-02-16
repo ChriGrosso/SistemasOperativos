@@ -1,0 +1,19 @@
+PID: Process id
+cuando llamas  fork() te devuelve pid hijo
+
+PID > 0 Padre
+PID = 0 Hijo
+
+Los dos procesos tienen el mismo codigo.
+
+Lo unico que cambia es el PID
+
+Siempre tenemos un IF sobre el PID para saber si estamops en el padre o en el Hijo
+
+Proceso Hijo > Exit()
+Proceso Padre > Wait()
+
+Llamada bloqueante (con wait()) el procesos se bloquea hasta que el hijo 
+
+Nunca Usar PPID
+

@@ -9,8 +9,7 @@
 
 int main(void) {
   pid_t pid;
-  char *sentence = calloc(sizeof(MESSAGE), 1);
-
+  char *sentence = calloc(sizeof(MESSAGE),1);
   pid = fork();
   if (pid < 0) {
     perror("fork");
@@ -20,7 +19,9 @@ int main(void) {
     exit(EXIT_SUCCESS);
   } else {
     wait(NULL);
+    strcpy(sentence, MESSAGE);
     printf("Parent: %s\n", sentence);
+    free(sentence);
     exit(EXIT_SUCCESS);
   }
 }
