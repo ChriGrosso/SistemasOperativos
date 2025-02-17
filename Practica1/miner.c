@@ -62,3 +62,4 @@ void miner(int rounds, int num_threads, int fd_write) {
 
         target = solution;
     }
+}
