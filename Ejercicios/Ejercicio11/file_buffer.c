@@ -8,7 +8,7 @@ int main(void) {
   pid_t pid;
 
   printf("I am your father");
-
+  fflush(stdout);
   pid = fork();
   if (pid < 0) {
     perror("fork");

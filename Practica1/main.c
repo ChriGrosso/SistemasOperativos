@@ -6,7 +6,9 @@
 #include "pow.h"
 
 int main(int argc , char * argv []) {
-    int i,r,h,o;
+    pthread_t thread[20];
+    //9997697
+    /*int i,r,h,o;
     if (argc < 3) {
         fprintf(stderr, "Error in the input parameters:\n\n");
         fprintf(stderr, "%s -r <int> -h <int> -p <int>\n", argv[0]);
@@ -27,7 +29,14 @@ int main(int argc , char * argv []) {
             fprintf(stderr, "Parameter %s is invalid\n", argv[i]);
             exit(-1);
         }
+    }*/
+   for(int i = 0; i<20;i++){
+    error = pthread_create(&h1, NULL, slow_printf, hello);
+    if (error != 0) {
+        fprintf(stderr, "pthread_create: %s\n", strerror(error));
+        exit(EXIT_FAILURE);
     }
+   }
     
     return 0;
 }
