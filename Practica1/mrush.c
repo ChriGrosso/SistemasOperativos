@@ -19,6 +19,12 @@ int main(int argc, char *argv[]) {
     int rounds = atoi(argv[2]);
     int num_threads = atoi(argv[3]);
 
+    // Se validan los paramteros introducidos
+    if (rounds <= 0 || num_threads <= 0) {
+        fprintf(stderr, "Rounds and number of threads must be positive integers.\n");
+        exit(EXIT_FAILURE);
+    }
+
     // Creamos dos pipes: uno para Minero->Monitor y otro para Monitor->Minero.
     int pipe_m2mon[2];
     int pipe_mon2m[2];
