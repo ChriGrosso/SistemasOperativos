@@ -1,3 +1,15 @@
+/**
+ * @file miner.c
+ * @brief Implementación del proceso Minero usando hilos y procesos.
+ *
+ * Este archivo implementa la lógica del proceso Minero, que divide el espacio de búsqueda
+ * entre varios hilos para resolver el POW. Además, crea un proceso Monitor para validar
+ * la solución encontrada a través de pipes.
+ *
+ * @author Christian y Pablo
+ * @date 2025-02-21
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -6,6 +18,15 @@
 #include <sys/types.h>
 #include "pow.h"
 
+/**
+ * @brief Estructura que contiene los datos para cada hilo de minado.
+ *
+ * - target_ini: Target inicial para el POW.
+ * - beginning: Inicio del rango asignado al hilo.
+ * - finish: Fin del rango asignado al hilo.
+ * - discover: Indicador de si se encontró la solución en ese rango.
+ * - solution: Solución hallada, en caso de encontrarla.
+ */
 typedef struct {
     long int target_ini;
     long int beginning;
@@ -14,11 +35,20 @@ typedef struct {
     long int solution;
 } Miner;
 
+/**
+ * @brief Función de búsqueda para cada hilo.
+ *
+ * Recorre el rango [beginning, finish) y comprueba si para algún valor se cumple que
+ * pow_hash(valor) == target_ini. Si se encuentra, se marca discover y se almacena la solución.
+ *
+ * @param arg Puntero a una estructura Miner.
+ * @return Siempre retorna NULL.
+ */
 void *mine(void *arg) {
 
     Miner *data = (Miner *)arg;
     long int i = 0;
-    
+   
     for (i = data->beginning; i < data->finish; i++) {
         if (pow_hash(i) == data->target_ini) {
             data->discover = 1;
@@ -26,12 +56,30 @@ void *mine(void *arg) {
             break;
         }
     }
-    
+   
     return NULL;
 }
 
+/**
+ * @brief Declaración de la función monitor.
+ *
+ * Implementada en monitor.c.
+ *
+ * @param pipe1_read Descriptor de lectura del primer pipe.
+ * @param pipe2_write Descriptor de escritura del segundo pipe.
+ */
 void monitor(int pipe1_read, int pipe2_write);
 
+/**
+ * @brief Crea los hilos para el minado.
+ *
+ * Divide el espacio de búsqueda en partes iguales para cada hilo y los crea.
+ *
+ * @param threads Array de hilos (pthread_t).
+ * @param data Array de estructuras Miner.
+ * @param num_threads Número de hilos a crear.
+ * @param target Valor target para la búsqueda.
+ */
 void threadsCreate(pthread_t *threads, Miner *data, int num_threads, long int target) {
 
     long int range = POW_LIMIT / num_threads;
@@ -46,6 +94,18 @@ void threadsCreate(pthread_t *threads, Miner *data, int num_threads, long int ta
     }
 }
 
+/**
+ * @brief Une los hilos y comprueba si se encontró la solución.
+ *
+ * Espera a que cada hilo finalice y, si alguno encontró la solución, actualiza la variable found
+ * y almacena la solución encontrada.
+ *
+ * @param threads Array de hilos (pthread_t).
+ * @param data Array de estructuras Miner.
+ * @param num_threads Número de hilos.
+ * @param found Puntero a entero que se actualiza a 1 si se encontró la solución.
+ * @param solution Puntero a long int donde se almacena la solución.
+ */
 void threadsJoin(pthread_t *threads, Miner *data, int num_threads, int *found, long int *solution) {
 
     int i = 0;
@@ -59,6 +119,21 @@ void threadsJoin(pthread_t *threads, Miner *data, int num_threads, int *found, l
     }
 }
 
+/**
+ * @brief Función principal del proceso Minero.
+ *
+ * Realiza un número de rondas de minado. En cada ronda, crea hilos para buscar la solución,
+ * envía el par (target, solución) al Monitor a través de pipes, espera la confirmación y
+ * actualiza el target para la siguiente ronda.
+ *
+ * @param rounds Número de rondas de minado.
+ * @param n_threads Número de hilos a utilizar.
+ * @param target_ini Target inicial para el minado.
+ * @param pipe1_read Descriptor de lectura del primer pipe.
+ * @param pipe1_write Descriptor de escritura del primer pipe.
+ * @param pipe2_read Descriptor de lectura del segundo pipe.
+ * @param pipe2_write Descriptor de escritura del segundo pipe.
+ */
 void miner(int rounds, int n_threads, long int target_ini, int pipe1_read, int pipe1_write, int pipe2_read, int pipe2_write) {
            
     int status = 0;
