@@ -12,11 +12,11 @@ typedef struct {
     long int finish;
     int discover;
     long int solution;
-} MinerData;
+} Miner;
 
 void *mine(void *arg) {
 
-    MinerData *data = (MinerData *)arg;
+    Miner *data = (Miner *)arg;
     long int i = 0;
     
     for (i = data->beginning; i < data->finish; i++) {
@@ -32,7 +32,7 @@ void *mine(void *arg) {
 
 void monitor(int pipe1_read, int pipe2_write);
 
-void threadsCreate(pthread_t *threads, MinerData *data, int num_threads, long int target) {
+void threadsCreate(pthread_t *threads, Miner *data, int num_threads, long int target) {
 
     long int range = POW_LIMIT / num_threads;
     int i = 0;
@@ -46,7 +46,7 @@ void threadsCreate(pthread_t *threads, MinerData *data, int num_threads, long in
     }
 }
 
-void threadsJoin(pthread_t *threads, MinerData *data, int num_threads, int *found, long int *solution) {
+void threadsJoin(pthread_t *threads, Miner *data, int num_threads, int *found, long int *solution) {
 
     int i = 0;
 
@@ -85,7 +85,7 @@ void miner(int rounds, int n_threads, long int target_ini, int pipe1_read, int p
     for (round = 0; round < rounds; round++) {
 
         pthread_t threads[n_threads];
-        MinerData data[n_threads];
+        Miner data[n_threads];
         int discover = 0;
         long int solution = -1;
         int confirmation;
