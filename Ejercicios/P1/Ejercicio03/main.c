@@ -9,9 +9,14 @@ int main(int argc, char*argv[]){
     strcpy(filename,argv[1]);
     FILE* f;
     f=fopen(filename,"r");
-    if(f==NULL)
+    if(f==NULL){
+        int err=errno;
+        printf("Error Number: %d\n", err);
+        printf("%s\nError Code %d\n",strerror(errno),errno);
+
+    }
         //printf("%s\nError Code %d\n",strerror(errno),errno);
-        perror("ERR");
+        //perror("ERR");
     else
         return EXIT_SUCCESS;
 }
