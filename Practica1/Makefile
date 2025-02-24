@@ -1,21 +1,18 @@
-# Opzioni di compilazione
-CFLAGS = -Wall -Wextra -g
+CC = gcc
+CFLAGS = -Wall -Wextra -pthread -g
+TARGET = mrush
+SOURCES = mrush.c miner.c monitor.c pow.c
 
-# Compilazione del programma
-practica1: main.o pow.o
-	gcc $(CFLAGS) -o practica1 main.o pow.o
+.PHONY: all test clean
 
-# Compilazione dei file oggetto
-main.o: main.c pow.h
-	gcc $(CFLAGS) -c main.c
+all: $(TARGET)
 
-pow.o: pow.c pow.h
-	gcc $(CFLAGS) -c pow.c
+$(TARGET):
+	$(CC) $(CFLAGS) $(SOURCES) -o $(TARGET)
 
-# Esecuzione del programma con argomenti
-run: practica1
-	./practica1 -r 10 -h 10 -o 10
+test: $(TARGET)
+	@echo "Eseguo $(TARGET) con tre argomenti: 50 3 10"
+	./$(TARGET) 50 3 10
 
-# Pulizia dei file generati
 clean:
-	rm -f *.o practica1
+	rm -f $(TARGET) 
