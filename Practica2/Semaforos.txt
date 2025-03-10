@@ -1,0 +1,16 @@
+Semaforos: instrumentos para control de accesos a zonas compartidas.
+
+Hay una rutina critica y paramos el procesos antes de llegar a esta routina critica.
+
+2 Conceptos:
+	- Down: baja el semaforo, bloquea y entra
+	- Up: cuando sale de la routina critica deja que los demas pueden entrar
+
+Hay semaforos con nombre y sin nombre:
+si hay nombre la llamo "madrid"	pero tambien tiene un id (ej 18)
+
+sem_unlink no borra semaforo sino borra la etiqueta
+
+el unlink tenemos que hacerlo cuando todos los procesos que estan usando el semaforo ya terminan que hacerlo
+
+El down tiene que ser en un boucle que mira porque termina el down. (Tengo que mirar si sale porque tiene que salir o si 
