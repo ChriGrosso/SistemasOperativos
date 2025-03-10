@@ -17,6 +17,7 @@ pid_t *votantes;
 int N_PROCS;
 static int volatile candidate=-1;
 
+
 void votante(int idp, sem_t *sem) {
     sigset_t mask1, mask2, omask;
     int sig;
@@ -26,33 +27,34 @@ void votante(int idp, sem_t *sem) {
     sigaddset(&mask1, SIGUSR1);
     sigprocmask(SIG_BLOCK, &mask1, &omask);
     
-    // Attende il segnale SIGUSR1
+    // Attende SIGUSR1
     sigwait(&mask1, &sig);
     printf("Signal ricevuto %d\n", getpid());
 
-    sem_wait(sem); // Protegge la sezione critica
+    sem_wait(sem);  // Protegge la sezione critica
 
     if (candidate == -1) {
         candidate = getpid();
-        printf("Proceso candidato: %d\n", getpid());
+        printf("Proceso candidato: %d, candidate: %d\n", getpid(), candidate);
+    }
+    sem_post(sem);  // Uscire dalla sezione critica
 
+    if (candidate == getpid()) {
+        // Il candidato invia SIGUSR2 ai votanti
         for (int i = 0; i < N_PROCS; i++) {
-            printf("Invio SIGUSR2 a %d\n", votantes[i]); // Debug
-            if (getpid() != votantes[i]) {
+            if (votantes[i] != candidate && votantes[i]!=0) {
+                printf("Il candidato invia SIGUSR2 a %d\n", votantes[i]);
                 kill(votantes[i], SIGUSR2);
             }
         }
-        sem_post(sem);
     } else {
-        // Blocca SIGUSR2 PRIMA di rilasciare il semaforo per evitare perdite
+        // Bloccare SIGUSR2 prima di aspettarlo
         sigemptyset(&mask2);
         sigaddset(&mask2, SIGUSR2);
         sigprocmask(SIG_BLOCK, &mask2, NULL);
 
-        sem_post(sem); // Rilascia il semaforo prima di sospendersi
-
         printf("Proceso votante %d in attesa di SIGUSR2...\n", getpid());
-        sigsuspend(&mask2); // Attende SIGUSR2
+        sigwait(&mask2, &sig);
         printf("Proceso votante %d ha ricevuto SIGUSR2.\n", getpid());
     }
 
