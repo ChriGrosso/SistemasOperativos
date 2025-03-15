@@ -12,68 +12,14 @@
 #define LOG_FILE "voting_system.log"
 #define FILE_CANDIDATO "candidate.log"
 #define VOTE_FILE "votes.txt"
-#define SEM_NAME "/example_sem"
+#define SEM_NAME1 "/semCandidate"
+#define SEM_NAME2 "/semSync"
 
 static pid_t *votantes;
 int N_PROCS;
-static int volatile candidate=-1;
-
-void votante(int idp, sem_t *sem) {
-    sigset_t mask1, mask2, omask;
-    int sig;
-    FILE *file;
-    int candidato = -1;
-
-    // Blocca SIGUSR1 prima di aspettarlo
-    sigemptyset(&mask1);
-    sigaddset(&mask1, SIGUSR1);
-    sigprocmask(SIG_BLOCK, &mask1, &omask);
-    
-    // Attende SIGUSR1
-    sigwait(&mask1, &sig);
-    printf("Signal ricevuto %d\n", getpid());
-
-    // 🔒 Entra nella sezione critica
-    sem_wait(sem);
-    
-    // Se il file non esiste, lo creiamo con -1
-    file = fopen(FILE_CANDIDATO, "w");
-    if (file != NULL) {
-        fprintf(file, "-1\n");
-        fclose(file);
-    }
-    
-    if (candidato == -1) {
-        // 📝 Scrive il proprio PID come candidato
-        file = fopen(FILE_CANDIDATO, "w");
-        if (file != NULL) {
-            candidato = getpid();
-            fprintf(file, "%d\n", candidato);
-            fclose(file);
-            printf("Proceso candidato: %d\n", candidato);
-        } else {
-            perror("Errore nell'apertura del file candidato");
-        }
-    }
-    // 🔓 Esce dalla sezione critica
-    sem_post(sem);
-    
-    if (candidato != getpid()) {
-        //Se non è candidato, aspetta SIGUSR2
-        sigemptyset(&mask2);
-        sigaddset(&mask2, SIGUSR2);
-        sigprocmask(SIG_BLOCK, &mask2, NULL);
-        sigwait(&mask2, &sig);
-        printf("Proceso votante %d ha ricevuto SIGUSR2.\n", getpid());
-        printf("Proceso votante: %d\n", getpid());
-    }
-
-    // Ripristina la maschera originale dei segnali
-    sigprocmask(SIG_SETMASK, &omask, NULL);
-    
-}
 
 
+void elige_candidato(int N_PROCS);
 
 // Terminazione per ricezione SIGALRM
 void handler_SIGALRM(int sig) {
@@ -109,7 +55,8 @@ void handler_SIGINT(int sig) {
 
 // Programa principal
 int main(int argc, char *argv[]) {
-    struct sigaction sa1, sa2; 
+    struct sigaction sa1, sa2;
+    remove(FILE_CANDIDATO);
     
     // Gestione parametri
     if (argc != 3) {
@@ -143,12 +90,15 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "There is a previously established alarm\n");
     }
 
-    //Gestion Semaforo
-    sem_t *sem = NULL;
-    
-    if ((sem = sem_open(SEM_NAME, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 1)) == SEM_FAILED) {
-        perror("sem_open");
-        exit(EXIT_FAILURE);
+    sem_t *sem1 = sem_open(SEM_NAME1, O_CREAT | O_EXCL, 0666, 1);
+    if (sem1 == SEM_FAILED) {
+        perror("Errore in sem_open (padre 1)");
+        exit(1);
+    }
+    sem_t *sem2 = sem_open(SEM_NAME2, O_CREAT | O_EXCL, 0666, 0);
+    if (sem2 == SEM_FAILED) {
+        perror("Errore in sem_open (padre 2)");
+        exit(1);
     }
     
     votantes = malloc(N_PROCS * sizeof(pid_t));
@@ -162,17 +112,23 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < N_PROCS; i++) {
         pid_t pid = fork();
+
         if (pid < 0) {
-            perror("Error en fork");
+            perror("Errore in fork");
             exit(1);
-        } else if (pid == 0) {
-            //Figlio esegue codice di votante
-            votante(i,sem);
-            exit(0);
-        } else {
-            //Padre salva pid processo nel file
+        }
+
+        if (pid > 0) {
+            // Processo padre: salva il PID del figlio
             votantes[i] = pid;
-            fprintf(log_file, "Votante %d PID: %d\n", i, pid);
+            fprintf(log_file,/* "Votante %d PID: */"%d\n",/* i, */pid);
+            printf("Votante %d PID: %d -- Scritto da %d\n", i, pid, getpid());
+            fflush(log_file); // Scrive immediatamente nel file
+        } else {
+            // Processo figlio: chiude il file di log per evitare scritture multiple
+            fclose(log_file);
+            elige_candidato(N_PROCS);
+            exit(0);
         }
     }
 
@@ -180,12 +136,12 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < N_PROCS; i++) {
         kill(votantes[i], SIGUSR1);
     }
-
+    sleep(10);
+    
     for (int i = 0; i < N_PROCS; i++) {
         waitpid(votantes[i], NULL, 0);
     }
 
-    sem_close(sem);
-    
-
+    sem_close(sem1);
 }
+
