@@ -18,10 +18,10 @@ void vote() {
         exit(EXIT_FAILURE);
     }
 
-    srand(getpid());  // Seed random with PID
+    srand(getpid());
     char ballot = (rand() % 2) ? 'Y' : 'N';
 
-    sem_wait(sem_vote);  // Lock the file for writing
+    sem_wait(sem_vote);
 
     int fd = open(VOTE_FILE, O_WRONLY | O_APPEND | O_CREAT, 0644);
     if (fd < 0) {
@@ -31,7 +31,7 @@ void vote() {
         return;
     }
 
-    write(fd, &ballot, 1);
+    ssize_t bytes_written = write(fd, &ballot, 1);
     close(fd);
 
     sem_post(sem_vote);
@@ -51,12 +51,11 @@ void votante() {
     sigprocmask(SIG_BLOCK, &mask2, NULL);
 
     while (1) {
-        // Signal readiness to the candidate
         sem_post(sem_sync);
 
         int sig;
-        sigwait(&mask2, &sig);  // Wait for SIGUSR2
-        vote();                 // Perform voting
+        sigwait(&mask2, &sig);
+        vote();
     }
 
     sem_close(sem_sync);
