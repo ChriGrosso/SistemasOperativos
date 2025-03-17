@@ -15,15 +15,16 @@
 #define FILE_CANDIDATO "candidate.log"
 #define VOTE_FILE "votes.txt"
 
-#define SEM_NAME1 "/semCandidate" // Protects candidate.log
-#define SEM_NAME2 "/semSync"      // Sync between candidate & voters
-#define SEM_NAME3 "/semVote"      // Protects votes file
-#define SEM_NAME4 "/semRonda"     // Sync with parent
+#define SEM_NAME1 "/semCandidate"
+#define SEM_NAME2 "/semSync"
+#define SEM_NAME3 "/semVote"
+#define SEM_NAME4 "/semRonda"
 
 static pid_t *votantes;
 int N_PROCS;
 
 void handler_SIGALRM(int sig) {
+    (void)sig;
     printf("Finishing by alarm\n");
     sem_unlink(SEM_NAME1);
     sem_unlink(SEM_NAME2);
@@ -42,6 +43,7 @@ void handler_SIGALRM(int sig) {
 }
 
 void handler_SIGINT(int sig) {
+    (void)sig;
     sem_unlink(SEM_NAME1);
     sem_unlink(SEM_NAME2);
     sem_unlink(SEM_NAME3);
@@ -69,7 +71,6 @@ int main(int argc, char *argv[]) {
     N_PROCS = atoi(argv[1]);
     int N_SECS = atoi(argv[2]);
 
-    // Signal handling
     struct sigaction sa_alrm, sa_int;
     sa_alrm.sa_handler = handler_SIGALRM;
     sigemptyset(&sa_alrm.sa_mask);
@@ -81,12 +82,10 @@ int main(int argc, char *argv[]) {
     sa_int.sa_flags = 0;
     sigaction(SIGINT, &sa_int, NULL);
 
-    // Start alarm
     if (alarm(N_SECS)) {
         fprintf(stderr, "Warning: previously established alarm overwritten.\n");
     }
 
-    // Create semaphores
     sem_t *sem1 = sem_open(SEM_NAME1, O_CREAT, 0666, 1);
     if (sem1 == SEM_FAILED) {
         perror("Error opening sem1 (candidate file protection)");
@@ -115,14 +114,12 @@ int main(int argc, char *argv[]) {
     }
     sem_close(sem4);
 
-    // Prepare arrays
     votantes = malloc(N_PROCS * sizeof(pid_t));
     if (!votantes) {
         perror("Error allocating memory for votantes");
         exit(EXIT_FAILURE);
     }
 
-    // Clean or create initial files
     remove(FILE_CANDIDATO);
     remove(LOG_FILE);
     remove(VOTE_FILE);
@@ -131,7 +128,7 @@ int main(int argc, char *argv[]) {
     if (!fp_candidate) {
         perror("Error creating candidate.log");
     } else {
-        fprintf(fp_candidate, "-1\n");  // No candidate assigned initially
+        fprintf(fp_candidate, "-1\n");
         fclose(fp_candidate);
     }
 
@@ -142,7 +139,6 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // Create child processes
     for (int i = 0; i < N_PROCS; i++) {
         pid_t pid = fork();
         if (pid < 0) {
@@ -152,13 +148,10 @@ int main(int argc, char *argv[]) {
         }
 
         if (pid == 0) {
-            // Child process
             fclose(fp_log);
             elige_candidato(N_PROCS);
-            // Should never return
             exit(0);
         } else {
-            // Parent process
             votantes[i] = pid;
             fprintf(fp_log, "%d\n", pid);
             fflush(fp_log);
@@ -166,14 +159,11 @@ int main(int argc, char *argv[]) {
     }
     fclose(fp_log);
 
-    // Main loop: sends SIGUSR1 to all children, waits for sem4, then repeats
     while (1) {
-        // Send SIGUSR1 to all child processes
         for (int i = 0; i < N_PROCS; i++) {
             kill(votantes[i], SIGUSR1);
         }
 
-        // Wait for the candidate to post sem4
         sem4 = sem_open(SEM_NAME4, 0);
         if (sem4 == SEM_FAILED) {
             perror("Error re-opening sem4 in main loop");
