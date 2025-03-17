@@ -1,3 +1,14 @@
+/**
+ * @file eCandidatos.c
+ * @brief Funciones para la selección de candidatos en el sistema de votación.
+ *
+ * Este archivo contiene las funciones necesarias para elegir candidatos y manejar
+ * la sincronización entre procesos candidatos y votantes.
+ *
+ * @author Christian y Pablo
+ * @date 2025-03-09
+ */
+
 #include "eCandidatos.h"
 #include "votante.h"
 #include "candidate.h"
