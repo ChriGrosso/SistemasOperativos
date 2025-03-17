@@ -1,3 +1,14 @@
+/**
+ * @file votante.c
+ * @brief Funciones para el proceso votante en el sistema de votación.
+ *
+ * Este archivo contiene las funciones necesarias para generar y registrar votos,
+ * así como para manejar la sincronización entre procesos votantes y candidatos.
+ *
+ * @author Christian y Pablo
+ * @date 2025-03-09
+ */
+
 #include "votante.h"
 #include <stdio.h>
 #include <stdlib.h>
