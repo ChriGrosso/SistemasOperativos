@@ -1,3 +1,14 @@
+/**
+ * @file candidate.c
+ * @brief Funciones para el proceso candidato en el sistema de votación.
+ *
+ * Este archivo contiene las funciones necesarias para que el candidato espere los votos,
+ * procese los resultados y coordine la sincronización entre los procesos votantes y candidatos.
+ *
+ * @autor Christian y Pablo
+ * @fecha 2025-03-09
+ */
+
 #include "candidate.h"
 #include <stdio.h>
 #include <stdlib.h>
