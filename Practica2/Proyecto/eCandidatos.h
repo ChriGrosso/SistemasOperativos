@@ -2,11 +2,11 @@
 #define ECANDIDATOS_H
 
 /**
- * @brief Main function that waits for SIGUSR1 to start the candidate selection.
- *        If FILE_CANDIDATO has -1, the current process becomes candidate.
- *        Otherwise, it becomes a voter process.
+ * @brief Función principal que espera SIGUSR1 para iniciar la selección de candidatos.
+ *        Si FILE_CANDIDATO tiene -1, el proceso actual se convierte en candidato.
+ *        De lo contrario, se convierte en un proceso votante.
  * 
- * @param N_PROCS Number of processes in the system.
+ * @param N_PROCS Número de procesos en el sistema.
  */
 void elige_candidato(int N_PROCS);
 

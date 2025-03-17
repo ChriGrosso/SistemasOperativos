@@ -1,3 +1,14 @@
+/**
+ * @file eCandidatos.c
+ * @brief Funciones para la selección de candidatos en el sistema de votación.
+ *
+ * Este archivo contiene las funciones necesarias para elegir candidatos y manejar
+ * la sincronización entre procesos candidatos y votantes.
+ *
+ * @author Christian y Pablo
+ * @date 2025-03-09
+ */
+
 #include "eCandidatos.h"
 #include "votante.h"
 #include "candidate.h"
@@ -29,16 +40,13 @@ void elige_candidato(int N_PROCS) {
     sigprocmask(SIG_BLOCK, &mask1, NULL);
 
     while (1) {
-        // Wait for SIGUSR1 to start the election
         int sig;
         sigwait(&mask1, &sig);
 
-        // Acquire sem_candidate to update candidate.log
         sem_wait(sem_candidate);
 
         FILE *fp_candidate = fopen(FILE_CANDIDATO, "r");
         if (!fp_candidate) {
-            // If file doesn't exist, create it
             fp_candidate = fopen(FILE_CANDIDATO, "w");
             if (!fp_candidate) {
                 perror("Error creating candidate.log");
@@ -47,10 +55,8 @@ void elige_candidato(int N_PROCS) {
             fclose(fp_candidate);
         } else {
             int candidato_val = 0;
-            fscanf(fp_candidate, "%d", &candidato_val);
+            int result = fscanf(fp_candidate, "%d", &candidato_val);
             fclose(fp_candidate);
-
-            // If still -1, this process becomes candidate
             if (candidato_val == -1) {
                 fp_candidate = fopen(FILE_CANDIDATO, "w");
                 if (fp_candidate) {

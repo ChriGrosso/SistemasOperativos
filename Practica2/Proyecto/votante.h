@@ -2,14 +2,14 @@
 #define VOTANTE_H
 
 /**
- * @brief Generates a random vote ('Y' or 'N') and appends it to VOTE_FILE.
- *        A semaphore is used to protect write operations on the file.
+ * @brief Genera un voto aleatorio ('Y' o 'N') y lo añade a VOTE_FILE.
+ *        Se utiliza un semáforo para proteger las operaciones de escritura en el archivo.
  */
 void vote();
 
 /**
- * @brief Main loop of the voter process. Waits for SIGUSR2, then calls vote().
- *        Uses sem2 to signal readiness to the candidate.
+ * @brief Bucle principal del proceso votante. Espera SIGUSR2, luego llama a vote().
+ *        Utiliza sem2 para señalar la preparación al candidato.
  */
 void votante();
 
