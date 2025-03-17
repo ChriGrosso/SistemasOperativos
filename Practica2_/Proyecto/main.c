@@ -1,3 +1,14 @@
+/**
+ * @file main.c
+ * @brief Función principal para la ejecución del sistema de votación.
+ *
+ * Este archivo se encarga de inicializar los semáforos, manejar las señales,
+ * crear los procesos votantes y candidatos, y coordinar el ciclo de votación.
+ *
+ * @autor Christian y Pablo
+ * @fecha 2025-03-09
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
