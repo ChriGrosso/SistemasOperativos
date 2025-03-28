@@ -1,0 +1,13 @@
+read
+funcion bloqueante
+
+tengo que poner el read dentro de un boucle
+sem_wait protegida con boucle (DO WHILE)
+Practica 1
+
+Modularizacion para reutilizar codigo (Es un jaleo)
+
+Es mejor controlar errores del wait
+Variable status
+
+
