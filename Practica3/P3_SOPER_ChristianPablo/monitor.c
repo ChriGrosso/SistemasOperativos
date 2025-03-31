@@ -96,6 +96,10 @@ int main(int argc, char *argv[]) {
                 shm->in = (shm->in + 1) % BUFFER_SIZE;
                 sem_post(&shm->sem_mutex);
                 sem_post(&shm->sem_fill);
+
+                if (msgctl(msgid, IPC_RMID, NULL) == -1){
+                    perror("msgct elimination");
+                }
                 break;
             }
            
