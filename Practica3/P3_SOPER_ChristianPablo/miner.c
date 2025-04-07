@@ -6,13 +6,13 @@
 #include <time.h>
 #include <errno.h>
 
-#define MSG_KEY 0x5678        // Debe coincidir con la clave usada en monitor.c
-#define TERMINATION_TARGET -1 // Bloque especial para indicar finalización
+#define MSG_KEY 0x5678
+#define TERMINATION_OBJECTIVE -1
 
 typedef struct {
-    long target;
+    long objective;
     long solution;
-    int accepted; // Este campo se establecerá en el Comprobador
+    int accepted;
 } block_t;
 
 typedef struct {
@@ -20,15 +20,13 @@ typedef struct {
     block_t block;
 } msgbuf_t;
 
-void error_exit(const char *msg) {
-    perror(msg);
+void error_exit(const char *message) {
+    perror(message);
     exit(EXIT_FAILURE);
 }
 
-// Función para simular la prueba de trabajo (Proof-of-Work)
-// Para efectos de la práctica se genera una solución aleatoria mayor que el target.
-long generate_solution(long target) {
-    return target + (rand() % 100000000 + 1);
+long generate_solution(long objective) {
+    return objective + (rand() % 100000000 + 1);
 }
 
 int main(int argc, char *argv[]) {
@@ -36,52 +34,47 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Uso: %s <ROUNDS> <LAG_ms>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
+    
     int rounds = atoi(argv[1]);
     int lag = atoi(argv[2]);
+    int messageId;
+    block_t actual;
+    msgbuf_t message;
+    int i = 0;
    
-    // Inicializar semilla aleatoria.
     srand(time(NULL));
    
-    // Creamos la cola de mensajes.
-    int msgid = msgget(MSG_KEY, IPC_CREAT | 0666);
-    if (msgid == -1) {
+    messageId = msgget(MSG_KEY, IPC_CREAT | 0666);
+    if (messageId == -1) {
         error_exit("msgget");
     }
    
-    block_t current;
-    current.target = 0; // Objetivo inicial
-   
-    msgbuf_t msg;
-    msg.mtype = 1;
+    actual.objective = 0;
+    
+    message.mtype = 1;
    
     printf("[%d] Generating blocks ...\n", getpid());
    
-    for (int i = 0; i < rounds; i++) {
-        current.solution = generate_solution(current.target);
-        // El campo 'accepted' se deja para que lo establezca el Comprobador.
-        msg.block = current;
+    for (i = 0; i < rounds; i++) {
+        actual.solution = generate_solution(actual.objective);
+        message.block = actual;
        
-        if (msgsnd(msgid, &msg, sizeof(block_t), 0) == -1) {
+        if (msgsnd(messageId, &message, sizeof(block_t), 0) == -1) {
             error_exit("msgsnd");
         }
        
-        // El siguiente objetivo es la solución hallada.
-        current.target = current.solution;
+        actual.objective = actual.solution;
        
-        usleep(lag * 1000); // Espera de LAG milisegundos.
+        usleep(lag * 1000);
     }
    
-    // Enviar el bloque de terminación.
-    current.target = TERMINATION_TARGET;
-    msg.block = current;
-    if (msgsnd(msgid, &msg, sizeof(block_t), 0) == -1) {
+    actual.objective = TERMINATION_OBJECTIVE;
+    message.block = actual;
+    if (msgsnd(messageId, &message, sizeof(block_t), 0) == -1) {
         error_exit("msgsnd termination");
     }
    
-    // Se espera un instante para asegurar que el Comprobador procesa el mensaje.
     sleep(1);
-    // Se elimina la cola de mensajes.
-    //msgctl(msgid, IPC_RMID, NULL);
    
     printf("[%d] Finishing\n", getpid());
     return 0;
