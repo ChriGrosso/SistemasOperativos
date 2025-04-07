@@ -1,1 +1,11 @@
+ d) En base al funcionamiento del sistema anterior: ¿Es necesario un sistema tipo productor–consumidor para garantizar que el sistema funciona correctamente si el retraso de Comprobador es mucho mayor que el de Minero? ¿Por qué? ¿Y si el retraso de Comprobador es muy inferior al de Minero? ¿Por qué? ¿Se simplifcaría la estructura global del sistema si entre Comprobador y Monitor hubiera también una cola de mensajes? ¿Por qué?
 
+
+Retraso de Comprobador mucho mayor que Minero:
+Si el Comprobador es lento, el Minero es posible que pudiera generar bloques más rápido de lo que se pueden procesar. Por lo que si no tenemos un mecanismo productor-consumidor, se llenaría el buffer y se perderían mensajes. Gracias a los semáforos y al buffer circular se obliga a que el Minero espere si no hay espacio, y de esta forma nos aseguramos de que ningún bloque se pierda.
+
+Retraso de Comprobador muy inferior al de Minero:
+Si el Comprobador es muy rápido, podría intentar extraer bloques cuando todavía no haya nuevos mensajes. Si utilizamos semáforos para sincronizar nos aseguramos que se bloquea la extracción hasta que se dispone de datos. Así, mantendremos el orden correcto sin leer datos inválidos.
+
+Cola de mensajes entre Comprobador y Monitor:
+Una cola de mensajes simplificaría el diseño porque ya incorpora mecanismos FIFO y bloqueo en el envío/recepción. Gracias a esto, se eliminaría la necesidad de implementar manualmente un buffer circular con semáforos, lo cual reduce la complejidad y el riesgo de errores de sincronización.
