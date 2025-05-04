@@ -71,6 +71,14 @@ int main(int argc, char *argv[]) {
     sys->num_miners++;
     sem_post(&sys->mutex);
 
+    while(1){
+        sem_wait(&sys->mutex);
+        int cur = sys->num_miners;
+        sem_post(&sys->mutex);
+        if(cur >= 2) break;
+        usleep(100000);
+    }
+
     // 3) Abrir cola de mensajes
     int msgid = msgget(MSG_KEY, IPC_CREAT | 0666);
     if (msgid < 0) { perror("msgget"); return EXIT_FAILURE; }
