@@ -8,10 +8,10 @@
 #include <sys/wait.h>
 #include <errno.h>
 
-#define MQ_NAME       "/block_queue"
-#define SHM_NAME      "/monitor_shm"
-#define MAX_MINERS    100
-#define BUFFER_SIZE   5
+#define MQ_NAME        "/block_queue"
+#define SHM_NAME       "/monitor_shm"
+#define MAX_MINERS     100
+#define BUFFER_SIZE    5
 #define TERMINATION_ID -1
 
 typedef struct {
@@ -31,12 +31,14 @@ typedef struct {
     sem_t   empty, full, mutex;
 } mon_shm_t;
 
-static void sem_wait_eintr(sem_t *s) {
-    while (sem_wait(s) == -1 && errno == EINTR) { /* retry */ }
+static inline int sem_wait_nointr(sem_t *sem) {
+    int r;
+    while ((r = sem_wait(sem)) == -1 && errno == EINTR) { /* retry */ }
+    return r;
 }
 
 int main(void) {
-    // 1) POSIX shm para buffer
+    // POSIX SHM para buffer de monitoreo
     int fd = shm_open(SHM_NAME, O_CREAT|O_EXCL|O_RDWR, 0666);
     mon_shm_t *shm;
     if (fd >= 0) {
@@ -51,7 +53,6 @@ int main(void) {
         shm = mmap(NULL, sizeof *shm, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
     }
 
-    // fork: padre(comprobador) / hijo(monitor)
     pid_t pid = fork();
     if (pid < 0) { perror("fork"); exit(EXIT_FAILURE); }
 
@@ -66,8 +67,8 @@ int main(void) {
                 perror("mq_receive");
                 break;
             }
-            sem_wait_eintr(&shm->empty);
-            sem_wait_eintr(&shm->mutex);
+            sem_wait_nointr(&shm->empty);
+            sem_wait_nointr(&shm->mutex);
             shm->buffer[shm->in] = blk;
             shm->in = (shm->in + 1) % BUFFER_SIZE;
             sem_post(&shm->mutex);
@@ -83,13 +84,12 @@ int main(void) {
         munmap(shm, sizeof *shm); shm_unlink(SHM_NAME);
         wait(NULL);
         return EXIT_SUCCESS;
-
     } else {
         // Monitor de impresión
         block_t b;
         while (1) {
-            sem_wait_eintr(&shm->full);
-            sem_wait_eintr(&shm->mutex);
+            sem_wait_nointr(&shm->full);
+            sem_wait_nointr(&shm->mutex);
             b = shm->buffer[shm->out];
             shm->out = (shm->out + 1) % BUFFER_SIZE;
             sem_post(&shm->mutex);
