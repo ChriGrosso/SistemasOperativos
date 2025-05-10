@@ -58,7 +58,10 @@ int main(int argc, char *argv[]) {
     int fd = shm_open(SHM_NAME, O_CREAT|O_EXCL|O_RDWR, 0666);
     system_state_t *sys;
     if (fd >= 0) {
-        ftruncate(fd, sizeof *sys);
+        if(ftruncate(fd, sizeof *sys) < 0){
+            perror("ftruncate(system_shm)");
+            exit(EXIT_FAILURE);
+        }
         sys = mmap(NULL, sizeof *sys, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
         sem_init(&sys->mutex, 1, 1);
         sys->next_block_id = 0;
@@ -75,6 +78,15 @@ int main(int argc, char *argv[]) {
     sys->coins[idx]  = 0;
     sys->num_miners++;
     sem_post(&sys->mutex);
+
+    // ─── BARRIER: Esperar a que al menos 2 mineros estén registrados ───
+    for (;;) {
+        if (sem_wait_nointr(&sys->mutex) < 0) { perror("sem_wait"); exit(EXIT_FAILURE); }
+        int cur = sys->num_miners;
+        sem_post(&sys->mutex);
+        if (cur >= 2) break;
+        usleep(100000);  // 100 ms antes de volver a comprobar
+    }
 
     // 3) Abrir cola de mensajes POSIX
     struct mq_attr attr = { .mq_flags = 0, .mq_maxmsg = 10, .mq_msgsize = sizeof(block_t) };
