@@ -31,6 +31,7 @@ typedef struct {
     sem_t   empty, full, mutex;
 } mon_shm_t;
 
+// Reintenta sem_wait si es interrumpido por señal
 static inline int sem_wait_nointr(sem_t *sem) {
     int r;
     while ((r = sem_wait(sem)) == -1 && errno == EINTR) { /* retry */ }
@@ -38,28 +39,39 @@ static inline int sem_wait_nointr(sem_t *sem) {
 }
 
 int main(void) {
-    // POSIX SHM para buffer de monitoreo
-    int fd = shm_open(SHM_NAME, O_CREAT|O_EXCL|O_RDWR, 0666);
+    // 1) POSIX SHM para buffer de monitoreo
+    int fd = shm_open(SHM_NAME, O_CREAT | O_EXCL | O_RDWR, 0666);
     mon_shm_t *shm;
     if (fd >= 0) {
-        ftruncate(fd, sizeof *shm);
-        shm = mmap(NULL, sizeof *shm, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        if(ftruncate(fd, sizeof *shm) < 0){
+            perror("ftruncate(monitor_shm)");
+            exit(EXIT_FAILURE);
+        }
+        shm = mmap(NULL, sizeof *shm, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         sem_init(&shm->empty, 1, BUFFER_SIZE);
         sem_init(&shm->full,  1, 0);
         sem_init(&shm->mutex, 1, 1);
         shm->in = shm->out = 0;
     } else {
         fd = shm_open(SHM_NAME, O_RDWR, 0666);
-        shm = mmap(NULL, sizeof *shm, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        shm = mmap(NULL, sizeof *shm, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     }
 
+    // 2) Fork: padre = Comprobador, hijo = Monitor
     pid_t pid = fork();
     if (pid < 0) { perror("fork"); exit(EXIT_FAILURE); }
 
     if (pid > 0) {
-        // Comprobador
-        mqd_t mq = mq_open(MQ_NAME, O_RDONLY);
+        // ----- Comprobador -----
+        struct mq_attr attr = {
+            .mq_flags   = 0,
+            .mq_maxmsg  = 10,
+            .mq_msgsize = sizeof(block_t),
+            .mq_curmsgs = 0
+        };
+        mqd_t mq = mq_open(MQ_NAME, O_CREAT | O_RDONLY, 0666, &attr);
         if (mq == (mqd_t)-1) { perror("mq_open"); exit(EXIT_FAILURE); }
+
         printf("[%d] Checking blocks ...\n", getpid());
         while (1) {
             block_t blk;
@@ -76,16 +88,19 @@ int main(void) {
 
             if (blk.id == TERMINATION_ID) break;
         }
+
         printf("[%d] Finishing\n", getpid());
-        mq_close(mq); mq_unlink(MQ_NAME);
+        mq_close(mq);
+        mq_unlink(MQ_NAME);
         sem_destroy(&shm->empty);
         sem_destroy(&shm->full);
         sem_destroy(&shm->mutex);
-        munmap(shm, sizeof *shm); shm_unlink(SHM_NAME);
+        munmap(shm, sizeof *shm);
+        shm_unlink(SHM_NAME);
         wait(NULL);
         return EXIT_SUCCESS;
     } else {
-        // Monitor de impresión
+        // ----- Monitor de impresión -----
         block_t b;
         while (1) {
             sem_wait_nointr(&shm->full);
@@ -97,11 +112,11 @@ int main(void) {
 
             if (b.id == TERMINATION_ID) break;
 
-            printf("Id : %04d\n", b.id);
-            printf("Winner : %d\n", b.winner_pid);
+            printf("Id : %04d\n",      b.id);
+            printf("Winner : %d\n",    b.winner_pid);
             printf("Target : %08ld\n", b.target);
             printf("Solution : %08ld ( validated )\n", b.solution);
-            printf("Votes : %d/%d\n", b.votes_yes, b.votes_total);
+            printf("Votes : %d/%d\n",  b.votes_yes, b.votes_total);
             printf("Wallets :");
             for (int i = 0; i < b.num_wallets; ++i) {
                 printf(" %d:%02d", b.wallets[i].pid, b.wallets[i].coins);
