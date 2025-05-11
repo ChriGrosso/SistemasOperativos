@@ -8,20 +8,20 @@
 #include <sys/wait.h>
 #include <errno.h>
 
-#define MQ_NAME        "/block_queue"
-#define SHM_NAME       "/monitor_shm"
-#define MAX_MINERS     100
-#define BUFFER_SIZE    5
+#define MQ_NAME "/block_queue"
+#define SHM_NAME "/monitor_shm"
+#define MAX_MINERS 100
+#define BUFFER_SIZE 5
 #define TERMINATION_ID -1
 
 typedef struct {
-    int     id;
-    long    target;
-    long    solution;
-    pid_t   winner_pid;
-    int     votes_yes;
-    int     votes_total;
-    int     num_wallets;
+    int id;
+    long target;
+    long solution;
+    pid_t winner_pid;
+    int votes_yes;
+    int votes_total;
+    int num_wallets;
     struct { pid_t pid; int coins; } wallets[MAX_MINERS];
 } block_t;
 
@@ -31,15 +31,16 @@ typedef struct {
     sem_t   empty, full, mutex;
 } mon_shm_t;
 
-// Reintenta sem_wait si es interrumpido por señal
+//se reintenta sem_wait si es interrumpido por señal
 static inline int sem_wait_nointr(sem_t *sem) {
     int r;
-    while ((r = sem_wait(sem)) == -1 && errno == EINTR) { /* retry */ }
+    while ((r = sem_wait(sem)) == -1 && errno == EINTR) {
+
+    }
     return r;
 }
 
 int main(void) {
-    // 1) POSIX SHM para buffer de monitoreo
     int fd = shm_open(SHM_NAME, O_CREAT | O_EXCL | O_RDWR, 0666);
     mon_shm_t *shm;
     if (fd >= 0) {
@@ -57,22 +58,28 @@ int main(void) {
         shm = mmap(NULL, sizeof *shm, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     }
 
-    // 2) Fork: padre = Comprobador, hijo = Monitor
+    //Fork: padre = Comprobador, hijo = Monitor
     pid_t pid = fork();
-    if (pid < 0) { perror("fork"); exit(EXIT_FAILURE); }
+    if (pid < 0) { 
+        perror("fork"); 
+        exit(EXIT_FAILURE); 
+    }
 
+    //comprueba
     if (pid > 0) {
-        // ----- Comprobador -----
         struct mq_attr attr = {
             .mq_flags   = 0,
             .mq_maxmsg  = 10,
             .mq_msgsize = sizeof(block_t),
             .mq_curmsgs = 0
         };
-        mqd_t mq = mq_open(MQ_NAME, O_CREAT | O_RDONLY, 0666, &attr);
-        if (mq == (mqd_t)-1) { perror("mq_open"); exit(EXIT_FAILURE); }
 
-        //printf("[%d] Checking blocks ...\n", getpid());
+        mqd_t mq = mq_open(MQ_NAME, O_CREAT | O_RDONLY, 0666, &attr);
+        if (mq == (mqd_t)-1) { 
+            perror("mq_open"); 
+            exit(EXIT_FAILURE); 
+        }
+
         while (1) {
             block_t blk;
             if (mq_receive(mq, (char*)&blk, sizeof blk, NULL) < 0) {
@@ -100,7 +107,7 @@ int main(void) {
         wait(NULL);
         return EXIT_SUCCESS;
     } else {
-        // ----- Monitor de impresión -----
+        //imprimir
         block_t b;
         while (1) {
             sem_wait_nointr(&shm->full);
@@ -110,7 +117,9 @@ int main(void) {
             sem_post(&shm->mutex);
             sem_post(&shm->empty);
 
-            if (b.id == TERMINATION_ID) break;
+            if (b.id == TERMINATION_ID) {
+                break;
+            }
 
             printf("Id : %04d\n",      b.id);
             printf("Winner : %d\n",    b.winner_pid);
