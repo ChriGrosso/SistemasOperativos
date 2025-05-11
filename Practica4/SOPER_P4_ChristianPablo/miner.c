@@ -10,33 +10,40 @@
 #include <time.h>
 #include "pow.h"
 
-#define MQ_NAME        "/block_queue"
-#define SHM_NAME       "/system_shm"
-#define MAX_MINERS     100
+#define MQ_NAME "/block_queue"
+#define SHM_NAME "/system_shm"
+#define MAX_MINERS 100
 #define TERMINATION_ID -1
 
-typedef struct { pid_t pid; int coins; } wallet_t;
+typedef struct { 
+    pid_t pid; 
+    int coins;
+} wallet_t;
+
 typedef struct {
-    sem_t   mutex;
-    int     next_block_id;
-    int     num_miners;
-    pid_t   miners[MAX_MINERS];
-    int     coins[MAX_MINERS];
+    sem_t mutex;
+    int next_block_id;
+    int num_miners;
+    pid_t miners[MAX_MINERS];
+    int coins[MAX_MINERS];
 } system_state_t;
+
 typedef struct {
-    int     id;
-    long    target;
-    long    solution;
-    pid_t   winner_pid;
-    int     votes_yes;
-    int     votes_total;
-    int     num_wallets;
+    int id;
+    long target;
+    long solution;
+    pid_t winner_pid;
+    int votes_yes;
+    int votes_total;
+    int num_wallets;
     wallet_t wallets[MAX_MINERS];
 } block_t;
 
 static inline int sem_wait_nointr(sem_t *sem) {
     int r;
-    while ((r = sem_wait(sem)) == -1 && errno == EINTR) { }
+    while ((r = sem_wait(sem)) == -1 && errno == EINTR) {
+
+    }
     return r;
 }
 
@@ -47,11 +54,13 @@ int main(int argc, char *argv[]) {
     }
     int seconds = atoi(argv[1]);
 
-    // 1) POSIX SHM
     int fd = shm_open(SHM_NAME, O_CREAT|O_EXCL|O_RDWR, 0666);
     system_state_t *sys;
     if (fd >= 0) {
-        if (ftruncate(fd, sizeof *sys) < 0) { perror("ftruncate"); exit(EXIT_FAILURE); }
+        if (ftruncate(fd, sizeof *sys) < 0) { 
+            perror("ftruncate"); 
+            exit(EXIT_FAILURE); 
+        }
         sys = mmap(NULL, sizeof *sys, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
         sem_init(&sys->mutex, 1, 1);
         sys->next_block_id = 0;
@@ -61,7 +70,6 @@ int main(int argc, char *argv[]) {
         sys = mmap(NULL, sizeof *sys, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
     }
 
-    // 2) Registro + barrera de al menos 2 mineros
     sem_wait_nointr(&sys->mutex);
     int idx = sys->num_miners++;
     sys->miners[idx] = getpid();
@@ -72,14 +80,22 @@ int main(int argc, char *argv[]) {
         sem_wait_nointr(&sys->mutex);
         int cur = sys->num_miners;
         sem_post(&sys->mutex);
-        if (cur >= 2) break;
+        if (cur >= 2) {
+            break;
+        }
         usleep(100000);
     }
 
-    // 3) Cola POSIX
-    struct mq_attr attr = { .mq_flags=0, .mq_maxmsg=10, .mq_msgsize=sizeof(block_t) };
+    struct mq_attr attr = { 
+        .mq_flags=0, 
+        .mq_maxmsg=10, 
+        .mq_msgsize=sizeof(block_t) 
+    };
     mqd_t mq = mq_open(MQ_NAME, O_CREAT|O_WRONLY, 0666, &attr);
-    if (mq == (mqd_t)-1) { perror("mq_open"); exit(EXIT_FAILURE); }
+    if (mq == (mqd_t)-1) { 
+        perror("mq_open"); 
+        exit(EXIT_FAILURE); 
+    }
 
     long target = 0;
     time_t start = time(NULL);
@@ -103,10 +119,9 @@ int main(int argc, char *argv[]) {
 
         mq_send(mq, (char*)&blk, sizeof blk, 0);
         target = sol;
-        usleep(300000);
+        usleep(300000); //para que salga un numero de rondas similar al del primer ejemplo
     }
 
-    // Terminación
     sem_wait_nointr(&sys->mutex);
     sys->num_miners--;
     int last = (sys->num_miners == 0);
