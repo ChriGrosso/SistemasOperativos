@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <semaphore.h>
 #include <errno.h>
+#include <time.h>
 #include "pow.h"
 
 #define MQ_NAME        "/block_queue"
@@ -14,11 +15,7 @@
 #define MAX_MINERS     100
 #define TERMINATION_ID -1
 
-typedef struct {
-    pid_t  pid;
-    int    coins;
-} wallet_t;
-
+typedef struct { pid_t pid; int coins; } wallet_t;
 typedef struct {
     sem_t   mutex;
     int     next_block_id;
@@ -26,7 +23,6 @@ typedef struct {
     pid_t   miners[MAX_MINERS];
     int     coins[MAX_MINERS];
 } system_state_t;
-
 typedef struct {
     int     id;
     long    target;
@@ -38,30 +34,24 @@ typedef struct {
     wallet_t wallets[MAX_MINERS];
 } block_t;
 
-// Reintenta sem_wait si es interrumpido por señal
 static inline int sem_wait_nointr(sem_t *sem) {
     int r;
-    while ((r = sem_wait(sem)) == -1 && errno == EINTR) {
-        // retry
-    }
+    while ((r = sem_wait(sem)) == -1 && errno == EINTR) { }
     return r;
 }
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
-        fprintf(stderr, "Uso: %s <ROUNDS> <THREADS>\n", argv[0]);
+        fprintf(stderr, "Uso: %s <SECONDS> <THREADS>\n", argv[0]);
         return EXIT_FAILURE;
     }
-    int rounds = atoi(argv[1]);
+    int seconds = atoi(argv[1]);
 
-    // 1) POSIX shared memory para estado del sistema
+    // 1) POSIX SHM
     int fd = shm_open(SHM_NAME, O_CREAT|O_EXCL|O_RDWR, 0666);
     system_state_t *sys;
     if (fd >= 0) {
-        if(ftruncate(fd, sizeof *sys) < 0){
-            perror("ftruncate(system_shm)");
-            exit(EXIT_FAILURE);
-        }
+        if (ftruncate(fd, sizeof *sys) < 0) { perror("ftruncate"); exit(EXIT_FAILURE); }
         sys = mmap(NULL, sizeof *sys, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
         sem_init(&sys->mutex, 1, 1);
         sys->next_block_id = 0;
@@ -71,46 +61,39 @@ int main(int argc, char *argv[]) {
         sys = mmap(NULL, sizeof *sys, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
     }
 
-    // 2) Registro del minero
-    if (sem_wait_nointr(&sys->mutex) < 0) { perror("sem_wait"); exit(EXIT_FAILURE); }
-    int idx = sys->num_miners;
+    // 2) Registro + barrera de al menos 2 mineros
+    sem_wait_nointr(&sys->mutex);
+    int idx = sys->num_miners++;
     sys->miners[idx] = getpid();
     sys->coins[idx]  = 0;
-    sys->num_miners++;
     sem_post(&sys->mutex);
 
-    // ─── BARRIER: Esperar a que al menos 2 mineros estén registrados ───
-    for (;;) {
-        if (sem_wait_nointr(&sys->mutex) < 0) { perror("sem_wait"); exit(EXIT_FAILURE); }
+    while (1) {
+        sem_wait_nointr(&sys->mutex);
         int cur = sys->num_miners;
         sem_post(&sys->mutex);
         if (cur >= 2) break;
-        usleep(100000);  // 100 ms antes de volver a comprobar
+        usleep(100000);
     }
 
-    // 3) Abrir cola de mensajes POSIX
-    struct mq_attr attr = { .mq_flags = 0, .mq_maxmsg = 10, .mq_msgsize = sizeof(block_t) };
+    // 3) Cola POSIX
+    struct mq_attr attr = { .mq_flags=0, .mq_maxmsg=10, .mq_msgsize=sizeof(block_t) };
     mqd_t mq = mq_open(MQ_NAME, O_CREAT|O_WRONLY, 0666, &attr);
-    if (mq == (mqd_t)-1) { perror("mq_open"); return EXIT_FAILURE; }
+    if (mq == (mqd_t)-1) { perror("mq_open"); exit(EXIT_FAILURE); }
 
-    printf("[%d] Generating blocks ...\n", getpid());
     long target = 0;
-    for (int r = 0; r < rounds; ++r) {
+    time_t start = time(NULL);
+    while (time(NULL) - start < seconds) {
         long sol = pow_hash(target);
 
-        // sección crítica
-        if (sem_wait_nointr(&sys->mutex) < 0) { perror("sem_wait"); exit(EXIT_FAILURE); }
+        sem_wait_nointr(&sys->mutex);
         int id = sys->next_block_id++;
         sys->coins[idx]++;
         int nm = sys->num_miners;
         block_t blk = {
-            .id           = id,
-            .target       = target,
-            .solution     = sol,
-            .winner_pid   = getpid(),
-            .votes_yes    = nm,
-            .votes_total  = nm,
-            .num_wallets  = nm
+            .id = id, .target = target, .solution = sol,
+            .winner_pid = getpid(), .votes_yes = nm, .votes_total = nm,
+            .num_wallets = nm
         };
         for (int i = 0; i < nm; ++i) {
             blk.wallets[i].pid   = sys->miners[i];
@@ -120,13 +103,11 @@ int main(int argc, char *argv[]) {
 
         mq_send(mq, (char*)&blk, sizeof blk, 0);
         target = sol;
-        usleep(100000);
+        usleep(300000);
     }
 
-    printf("[%d] Finishing\n", getpid());
-
-    // desregistro
-    if (sem_wait_nointr(&sys->mutex) < 0) { perror("sem_wait"); exit(EXIT_FAILURE); }
+    // Terminación
+    sem_wait_nointr(&sys->mutex);
     sys->num_miners--;
     int last = (sys->num_miners == 0);
     sem_post(&sys->mutex);
@@ -140,6 +121,5 @@ int main(int argc, char *argv[]) {
         mq_close(mq);
         munmap(sys, sizeof *sys);
     }
-
     return EXIT_SUCCESS;
 }
