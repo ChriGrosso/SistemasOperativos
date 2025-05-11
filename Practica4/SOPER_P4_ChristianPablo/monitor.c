@@ -72,7 +72,7 @@ int main(void) {
         mqd_t mq = mq_open(MQ_NAME, O_CREAT | O_RDONLY, 0666, &attr);
         if (mq == (mqd_t)-1) { perror("mq_open"); exit(EXIT_FAILURE); }
 
-        printf("[%d] Checking blocks ...\n", getpid());
+        //printf("[%d] Checking blocks ...\n", getpid());
         while (1) {
             block_t blk;
             if (mq_receive(mq, (char*)&blk, sizeof blk, NULL) < 0) {
